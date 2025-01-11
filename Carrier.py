@@ -157,7 +157,7 @@ class Carrier:
                 edge_bonus = any(
                   0 <= nx < self.map.width and
                   0 <= ny < self.map.height and
-                  self.team_zone[ny][nx] != self.team_zone[y][x]
+                  self.team_zone[nx][ny] != self.team_zone[x][y]
                   for nx, ny in [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
                 )
                 if edge_bonus:
