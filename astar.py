@@ -2,6 +2,8 @@ from collections import defaultdict
 from numbers import Number
 from functools import partial
 from heapq import heappush, heappop
+import numpy as np
+from game_message import *
 
 def d_manhattan(a: tuple[Number, ...], b: tuple[Number, ...]) -> Number:
     return sum([abs(pair[0] - pair[1]) for pair in zip(a, b)])
@@ -53,3 +55,26 @@ djikstra = partial(A_star, h=lambda _: 0)
 def A_star_classic(start, goal, neighbors, d) -> list[tuple[Number, Number]] | None:
     h = partial(d_manhattan, goal)
     return A_star(start, goal, neighbors, d, h)
+
+def convert_to_bool_map(game_message: TeamGameState):
+    w, h = game_message.map.width, game_message.map.height
+
+    bool_map = np.full((w, h), True)
+
+    for x in range(w):
+        for y in range(h):
+            bool_map[x, y] = game_message.map.tiles[x][y] != 'WALL'
+
+    return bool_map
+
+# c'est inplace attention
+def add_enemies_to_map(bool_map, game_message: TeamGameState):
+    for e in game_message.otherCharacters:
+        bool_map[e.position.x, e.position.y] = False
+
+def add_items_to_map(bool_map, game_message: TeamGameState):
+    for item in game_message.items:
+        bool_map[item.position.x, item.position.y] = False
+
+def A_star_voiture(game_map, start, goal) -> list[tuple[Number, Number]] | None:
+    return A_star_classic(start, goal, partial(neighbors_one_move_udlr, map=game_map), d_manhattan)
