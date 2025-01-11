@@ -249,8 +249,9 @@ class Carrier:
         if safe_home_positions:
           closest_pos = min(safe_home_positions,
                             key=lambda pos: 99999 if pos[1] is None else len(pos[1]))
-          next_pos = closest_pos[1][1]
-          return MoveToAction(characterId=self.car_id, position=Position(x=next_pos[0], y=next_pos[1]))
+          if closest_pos[1] is not None:
+            next_pos = closest_pos[1][1]
+            return MoveToAction(characterId=self.car_id, position=Position(x=next_pos[0], y=next_pos[1]))
 
     # Look for accessible Blitzium
     for check_zones in [(True, False), (False, True)]:  # First enemy, then neutral
