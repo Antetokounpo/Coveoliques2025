@@ -2,7 +2,7 @@ import random
 from game_message import *
 from collections import deque
 from Defender import Defender
-from Carrier import Carrier
+from CarrierV2 import Carrier
 
 class MyBot:
     def __init__(self):

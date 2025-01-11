@@ -212,7 +212,7 @@ class Carrier:
 
     # If carrying Blitzium, try to bring it home safely
     if any(item.type.startswith("blitzium_") for item in self.items):
-      if self.is_in_team_zone(self.position):
+      if self.is_in_team_zone(self.position) and not any(item.position.x == self.position.x and item.position.y == self.position.y for item in self.all_items):
         return DropAction(characterId=self.car_id)
       else:
         # Find safe path home
@@ -222,6 +222,7 @@ class Carrier:
           for y in range(self.map.height)
           if self.is_in_team_zone(Position(x=x, y=y)) and
              self.is_valid_position(Position(x=x, y=y)) and
+             not any(item.position.x == x and item.position.y == y for item in self.all_items) and
              self.find_path(self.position, Position(x=x, y=y))
         ]
         if safe_home_positions:
