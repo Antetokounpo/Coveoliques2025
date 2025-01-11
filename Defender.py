@@ -1,5 +1,5 @@
 from game_message import Character, Position, Item, TeamGameState, GameMap, MoveDownAction, MoveUpAction, \
-  MoveRightAction, MoveLeftAction, Action
+  MoveRightAction, MoveLeftAction, Action, DropAction
 from typing import List, Optional, Tuple
 
 class Defender:
@@ -34,6 +34,7 @@ class Defender:
     """Determine if we should intercept this enemy"""
     if not self.alive or not enemy.alive:
       return False
+
 
     # Must be in our territory
     if not self.is_in_our_territory(self.position):
@@ -171,3 +172,22 @@ class Defender:
   def manhattan_distance(pos1: Position, pos2: Position) -> int:
     """Calculate Manhattan distance between two positions"""
     return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
+
+  def get_action(self) -> Optional[Action]:
+    """Get the next action for this defender"""
+    # First check if we need to drop items
+    if self.should_drop_items():
+      return DropAction(characterId=self.car_id)
+
+    # Check if there's a nearby enemy we should intercept
+    nearest_enemy = self.get_nearest_enemy_with_items()
+    if nearest_enemy and self.should_intercept(nearest_enemy):
+      # If we're already adjacent, no need to move
+      if self.manhattan_distance(self.position, nearest_enemy.position) <= 1:
+        return None  # Interception happens automatically
+      # Otherwise, move towards enemy
+      return self.get_next_move(nearest_enemy.position)
+
+    # If no immediate threats, patrol our territory
+    patrol_position = self.find_patrol_position()
+    return self.get_next_move(patrol_position)
