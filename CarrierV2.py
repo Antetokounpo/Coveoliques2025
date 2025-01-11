@@ -137,7 +137,8 @@ class Carrier:
       if not item.type.startswith("blitzium_"):
         continue
       pos = item.position
-      if not self.find_path(self.position, pos):
+      path = astar.A_star_voiture(self.bool_map, self.position, pos)
+      if path is None:
         continue
       if (check_enemy and self.is_in_enemy_zone(pos)) or \
               (check_neutral and self.is_in_neutral_zone(pos)):
@@ -212,6 +213,8 @@ class Carrier:
     if not self.alive:
       return None
 
+    astar.add_enemies_to_map(self.bool_map, self.enemies) # add enemies to astar finding
+
     # If carrying Blitzium, try to bring it home safely
     if any(item.type.startswith("blitzium_") for item in self.items):
       if self.is_in_team_zone(self.position) and not any(item.position.x == self.position.x and item.position.y == self.position.y for item in self.all_items):
@@ -242,7 +245,16 @@ class Carrier:
         if (self.position.x == blitzium.position.x and
                 self.position.y == blitzium.position.y):
           return GrabAction(characterId=self.car_id)
-        return MoveToAction(characterId=self.car_id, position=blitzium.position)
+        
+        path = astar.A_star_voiture(self.bool_map, self.position, blitzium.position)
+        if path is None:
+          return MoveToAction(characterId=self.car_id, position=blitzium.position)
+        else:
+          next_position = Position(
+            x=path[1][0],
+            y=path[1][1]
+          )
+          return MoveToAction(characterId=self.car_id, position=next_position)
 
     # If no Blitzium is accessible, focus on radiant cleanup
     radiant_action = self.handle_radiant_cleanup()

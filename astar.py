@@ -68,8 +68,8 @@ def convert_to_bool_map(game_message: TeamGameState):
     return bool_map
 
 # c'est inplace attention
-def add_enemies_to_map(bool_map, game_message: TeamGameState):
-    for e in game_message.otherCharacters:
+def add_enemies_to_map(bool_map, enemies):
+    for e in enemies:
         bool_map[e.position.x, e.position.y] = False
 # ditto ici
 def add_items_to_map(bool_map, game_message: TeamGameState):
@@ -77,4 +77,6 @@ def add_items_to_map(bool_map, game_message: TeamGameState):
         bool_map[item.position.x, item.position.y] = False
 
 def A_star_voiture(game_map, start, goal) -> list[tuple[Number, Number]] | None:
-    return A_star_classic(start, goal, partial(neighbors_one_move_udlr, map=game_map), d_manhattan)
+    start_pos = (start.x, start.y)
+    goal_pos = (goal.x, goal.y)
+    return A_star_classic(start_pos, goal_pos, partial(neighbors_one_move_udlr, map=game_map), d_manhattan)
