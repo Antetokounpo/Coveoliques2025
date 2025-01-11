@@ -1,10 +1,16 @@
 import random
 from game_message import *
+from collections import deque
+from Defender import Defender
+from Carrier import Carrier
 
-
-class Bot:
+class MyBot:
     def __init__(self):
-        print("Initializing your super mega duper bot")
+        self.clean_up_own_zone = True
+
+    def clean_up(self, game_message: TeamGameState, character: Character, radian_to_grab: Item):
+        pass 
+
 
     def get_next_move(self, game_message: TeamGameState):
         """
@@ -12,19 +18,86 @@ class Bot:
         """
         actions = []
 
+        current_id = game_message.currentTeamId
+
+        blitzium = deque() # blitzium dans la zone adverse
+        radiant = deque() # radiant dans notre zone
+        for item in game_message.items:
+            item_pos = item.position
+            if item.type.startswith("radiant") and game_message.teamZoneGrid[item_pos.x][item_pos.y] == current_id:
+                radiant.append(item)
+            elif item.type.startswith("blitzium") and game_message.teamZoneGrid[item_pos.x][item_pos.y] != current_id:
+                blitzium.append(item)
+
         for character in game_message.yourCharacters:
-            actions.append(
-                random.choice(
-                    [
-                        MoveUpAction(characterId=character.id),
-                        MoveRightAction(characterId=character.id),
-                        MoveDownAction(characterId=character.id),
-                        MoveLeftAction(characterId=character.id),
-                        GrabAction(characterId=character.id),
-                        DropAction(characterId=character.id),
-                    ]
-                )
-            )
+
+            radiant_to_grab = None if not radiant else radiant.pop()
+
+            if self.clean_up_own_zone:
+                pass
+
+            if character.position == radiant_to_grab.position:
+                actions.append(GrabAction(characterId=character.id))
+            else:
+                actions.append(MoveToAction(characterId=character.id, position=radiant_to_grab.position))
 
         # You can clearly do better than the random actions above! Have fun!
         return actions
+
+
+class DefenderBot:
+    def __init__(self):
+        pass
+
+    def get_next_move(self, game_message: TeamGameState):
+        actions = []
+        one_defender = False
+
+        print(len(game_message.map.tiles))
+        print(game_message.map.width, game_message.map.height)
+
+        for character in game_message.yourCharacters:
+            if not one_defender:
+                #one_defender = True
+                defender = Defender(character, game_message)
+                next_action = defender.get_action()
+                if next_action is not None:
+                    actions.append(next_action)
+            else:
+                actions.append(
+                    random.choice(
+                        [
+                            MoveUpAction(characterId=character.id),
+                            MoveRightAction(characterId=character.id),
+                            MoveDownAction(characterId=character.id),
+                            MoveLeftAction(characterId=character.id),
+                            GrabAction(characterId=character.id),
+                            DropAction(characterId=character.id),
+                        ]
+                    )
+                )
+        
+        return actions
+
+class HalfHalf:
+    def __init__(self):
+        pass
+
+    def get_next_move(self, game_message: TeamGameState):
+        actions = []
+
+        for i, character in enumerate(game_message.yourCharacters):
+            if i % 2 == 1:
+                defender = Defender(character, game_message)
+                next_action = defender.get_action()
+                if next_action is not None:
+                    actions.append(next_action)
+            else:
+                carrier = Carrier(character, game_message)
+                next_action = carrier.get_action()
+                if next_action is not None:
+                    actions.append(next_action)
+ 
+        return actions
+
+Bot = HalfHalf 
