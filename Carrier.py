@@ -39,28 +39,33 @@ class Carrier:
     zone = self.team_zone[position.x][position.y]
     return zone != "" and zone != self.team_id
 
+  def is_in_neutral_zone(self, position: Position) -> bool:
+    """Check if a position is in neutral zone"""
+    return self.team_zone[position.x][position.y] == ""
+
   def is_safe_position(self, position: Position) -> bool:
-    """Check if a position is safe from enemies.
-    More tolerant of risk when carrying Radiant items, but still tries to avoid death."""
+    """Check if a position is safe from enemies"""
     if not self.is_in_enemy_zone(position):
       return True
 
-    carrying_radiant = any(item.type.startswith("radiant_") for item in self.items)
-    safe_distance = 1 if carrying_radiant else 2  # Be more willing to get closer when carrying Radiant
+    carrying_blitzium = any(item.type.startswith("blitzium_") for item in self.items)
 
-    # Count nearby enemies
-    nearby_enemies = 0
-    for enemy in self.enemies:
-      if enemy.alive:
-        enemy_dist = abs(enemy.position.x - position.x) + abs(enemy.position.y - position.y)
-        if enemy_dist <= safe_distance:
-          nearby_enemies += 1
-
-    # When carrying Radiant, we can tolerate more risk but still avoid certain death
-    if carrying_radiant:
-      return nearby_enemies <= 1  # Only risk it if there's at most one enemy nearby
+    # More careful when carrying Blitzium
+    if carrying_blitzium:
+      for enemy in self.enemies:
+        if enemy.alive:
+          enemy_dist = abs(enemy.position.x - position.x) + abs(enemy.position.y - position.y)
+          if enemy_dist <= 2:  # Stay further away when carrying Blitzium
+            return False
     else:
-      return nearby_enemies == 0  # No enemies nearby when carrying Blitzium
+      # Count nearby enemies when not carrying Blitzium
+      nearby_enemies = sum(1 for enemy in self.enemies
+                           if enemy.alive and
+                           abs(enemy.position.x - position.x) +
+                           abs(enemy.position.y - position.y) <= 1)
+      if nearby_enemies > 1:  # Only avoid if multiple enemies are very close
+        return False
+    return True
 
   def find_radiant_in_team_zone(self) -> Optional[Item]:
     """Find radiant items in our team zone"""
@@ -71,18 +76,29 @@ class Carrier:
     ]
     return self.get_closest_item(radiant_items)
 
-  def find_blitzium_in_enemy_zone(self) -> Optional[Item]:
-    """Find blitzium items in enemy zone"""
-    blitzium_items = [
-      item for item in self.all_items
-      if (item.type.startswith("blitzium_")) and
-         self.is_in_enemy_zone(item.position)
-    ]
-    return self.get_closest_item(blitzium_items)
+  def find_blitzium_in_zone(self, check_enemy: bool = True, check_neutral: bool = True) -> Optional[Item]:
+    """Find most valuable blitzium items in specified zones"""
+    valid_items = []
+    for item in self.all_items:
+      if not item.type.startswith("blitzium_"):
+        continue
+      pos = item.position
+      if (check_enemy and self.is_in_enemy_zone(pos)) or \
+              (check_neutral and self.is_in_neutral_zone(pos)):
+        valid_items.append(item)
 
-  def find_drop_spot_near(self, target_pos: Position, max_radius: int = 3) -> Optional[Position]:
+    if not valid_items:
+      return None
+
+    # Sort by value first, then by distance if values are equal
+    return max(valid_items,
+               key=lambda item: (item.value,
+                                 -abs(item.position.x - self.position.x) -
+                                 abs(item.position.y - self.position.y)))
+
+  def find_drop_spot_near(self, target_pos: Position) -> Optional[Position]:
     """Find a valid spot to drop an item near a target position"""
-    # Search in increasing radius
+    max_radius = 3
     for radius in range(max_radius + 1):
       for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
@@ -104,87 +120,91 @@ class Carrier:
               return new_pos
     return None
 
-  def should_drop_radiant_for_blitzium(self, blitzium: Item) -> bool:
-    """Determine if we should drop our Radiant items to pick up Blitzium"""
-    if not any(item.type.startswith("radiant_") for item in self.items):
-      return False
-
-    # Calculate if we're close enough to the Blitzium to consider dropping Radiant
-    dist_to_blitzium = (abs(self.position.x - blitzium.position.x) +
-                        abs(self.position.y - blitzium.position.y))
-
-    # Only drop if we're relatively close and the position is relatively safe
-    return (dist_to_blitzium <= 3 and
-            self.is_safe_position(blitzium.position) and
-            len(self.items) + 1 > self.hasSpace)
-
   def get_action(self) -> Optional[Action]:
     """Determine the next action for the carrier"""
     if not self.alive:
       return None
 
-    # If carrying items, handle them based on their type
+    # If carrying items
     if self.items:
-      if any(item.type.startswith("radiant_") for item in self.items):
-        # When carrying Radiant items, move strategically into enemy territory
-        if self.is_in_enemy_zone(self.position):
-          return DropAction(characterId=self.car_id)
-        else:
-          # Find optimal position in enemy territory
-          best_position = None
-          best_score = float('-inf')
+      carrying_radiant = any(item.type.startswith("radiant_") for item in self.items)
+      carrying_blitzium = any(item.type.startswith("blitzium_") for item in self.items)
 
-          for x in range(self.map.width):
-            for y in range(self.map.height):
-              pos = Position(x=x, y=y)
-              if (self.team_zone[x][y] != self.team_id and
-                      self.team_zone[x][y] != "" and
-                      self.map.tiles[x][y] != "WALL"):
-
-                # Calculate position score based on multiple factors
-                dist = abs(x - self.position.x) + abs(y - self.position.y)
-                enemy_count = sum(1 for enemy in self.enemies
-                                  if enemy.alive and
-                                  abs(enemy.position.x - x) + abs(enemy.position.y - y) <= 2)
-
-                # Score formula considers:
-                # - Distance (closer is better)
-                # - Enemy presence (fewer enemies is better)
-                # - Edge of enemy territory (preferred as it's safer)
-                score = -dist - (enemy_count * 5)
-
-                # Bonus for positions at the edge of enemy territory
-                edge_bonus = any(
-                  0 <= nx < self.map.width and
-                  0 <= ny < self.map.height and
-                  self.team_zone[ny][nx] != self.team_zone[y][x]
-                  for nx, ny in [(x+1,y), (x-1,y), (x,y+1), (x,y-1)]
-                )
-                if edge_bonus:
-                  score += 3
-
-                if score > best_score:
-                  best_score = score
-                  best_position = pos
-
-          if best_position and self.is_safe_position(best_position):
-            return MoveToAction(characterId=self.car_id, position=best_position)
-
-          # If no safe position found, stay in place or retreat
-          return None
-      else:
-        # Bring blitzium back to our zone
+      # If carrying Blitzium, try to bring it home
+      if carrying_blitzium:
         if self.is_in_team_zone(self.position):
+          # Try to move deeper into our territory
+          current_dist_to_border = min(
+            abs(self.position.x - x) + abs(self.position.y - y)
+            for x in range(self.map.width)
+            for y in range(self.map.height)
+            if not self.is_in_team_zone(Position(x=x, y=y))
+          )
+
+          if current_dist_to_border < 2:  # If too close to border
+            deeper_pos = None
+            max_dist = current_dist_to_border
+            for x in range(self.map.width):
+              for y in range(self.map.height):
+                pos = Position(x=x, y=y)
+                if self.is_in_team_zone(pos):
+                  dist_to_border = min(
+                    abs(x - bx) + abs(y - by)
+                    for bx in range(self.map.width)
+                    for by in range(self.map.height)
+                    if not self.is_in_team_zone(Position(x=bx, y=by))
+                  )
+                  if dist_to_border > max_dist:
+                    max_dist = dist_to_border
+                    deeper_pos = pos
+
+            if deeper_pos:
+              return MoveToAction(characterId=self.car_id, position=deeper_pos)
+
           return DropAction(characterId=self.car_id)
         else:
-          # Find closest position in our zone
+          # Find safest path home
+          min_risk_pos = None
+          min_risk = float('inf')
           for x in range(self.map.width):
             for y in range(self.map.height):
               if self.team_zone[x][y] == self.team_id:
-                return MoveToAction(
-                  characterId=self.car_id,
-                  position=Position(x=x, y=y)
-                )
+                pos = Position(x=x, y=y)
+                risk = sum(1 for enemy in self.enemies
+                           if enemy.alive and
+                           abs(enemy.position.x - x) + abs(enemy.position.y - y) <= 3)
+                if risk < min_risk:
+                  min_risk = risk
+                  min_risk_pos = pos
+          if min_risk_pos:
+            return MoveToAction(characterId=self.car_id, position=min_risk_pos)
+
+      # Look for Blitzium in enemy zone first
+      target_blitzium = self.find_blitzium_in_zone(check_enemy=True, check_neutral=False)
+      if not target_blitzium and carrying_radiant:
+        # If we have Radiant and no enemy Blitzium, try to drop Radiant
+        if self.is_in_enemy_zone(self.position):
+          return DropAction(characterId=self.car_id)
+
+        # Find spot to drop Radiant in enemy territory
+        for x in range(self.map.width):
+          for y in range(self.map.height):
+            pos = Position(x=x, y=y)
+            if (self.is_in_enemy_zone(pos) and
+                    self.map.tiles[x][y] != "WALL" and
+                    not any(item.position.x == x and item.position.y == y
+                            for item in self.all_items)):
+              return MoveToAction(characterId=self.car_id, position=pos)
+
+      # If no enemy Blitzium, look in neutral zone
+      if not target_blitzium:
+        target_blitzium = self.find_blitzium_in_zone(check_enemy=False, check_neutral=True)
+
+      if target_blitzium:
+        if self.position.x == target_blitzium.position.x and \
+                self.position.y == target_blitzium.position.y:
+          return GrabAction(characterId=self.car_id)
+        return MoveToAction(characterId=self.car_id, position=target_blitzium.position)
 
     # If we have space for items
     if self.hasSpace:
@@ -195,12 +215,16 @@ class Carrier:
           return GrabAction(characterId=self.car_id)
         return MoveToAction(characterId=self.car_id, position=radiant.position)
 
-      # Second priority: Get blitzium from enemy zone
-      blitzium = self.find_blitzium_in_enemy_zone()
-      if blitzium and self.is_safe_position(blitzium.position):
-        if self.position.x == blitzium.position.x and self.position.y == blitzium.position.y:
-          return GrabAction(characterId=self.car_id)
-        return MoveToAction(characterId=self.car_id, position=blitzium.position)
+      # Look for Blitzium opportunities (enemy zone first, then neutral)
+      for check_zones in [(True, False), (False, True)]:  # First enemy, then neutral
+        blitzium = self.find_blitzium_in_zone(
+          check_enemy=check_zones[0],
+          check_neutral=check_zones[1]
+        )
+        if blitzium and self.is_safe_position(blitzium.position):
+          if self.position.x == blitzium.position.x and \
+                  self.position.y == blitzium.position.y:
+            return GrabAction(characterId=self.car_id)
+          return MoveToAction(characterId=self.car_id, position=blitzium.position)
 
-    # If no other action is available, move to a safe position
     return None
