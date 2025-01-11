@@ -87,16 +87,27 @@ class HalfHalf:
         actions = []
 
         for i, character in enumerate(game_message.yourCharacters):
-            if i % 2 == 1:
-                defender = Defender(character, game_message)
-                next_action = defender.get_action()
-                if next_action is not None:
-                    actions.append(next_action)
-            else:
-                carrier = Carrier(character, game_message)
-                next_action = carrier.get_action()
-                if next_action is not None:
-                    actions.append(next_action)
+            GameRole = Defender if i % 2 == 1 else Carrier
+            player = GameRole(character, game_message)
+            next_action = player.get_action()
+            if next_action is not None:
+                actions.append(next_action)
+            
+            if isinstance(next_action, DropAction):
+                game_message.items.append(
+                    Item(
+                        position=player.position,
+                        type=player.items[-1].type,
+                        value=player.items[-1].value
+                    )
+                )
+            #elif isinstance(next_action, GrabAction):
+            #    picked_up_item = Item(
+            #            position=player.position,
+            #            type=game_message.items,
+            #            value=player.items[-1].value
+            #    )
+            #    game_message.items.remove(picked_up_item)
  
         return actions
 
