@@ -80,26 +80,22 @@ class Carrier:
     ]
     return self.get_closest_item(blitzium_items)
 
-  def find_safe_drop_position(self) -> Optional[Position]:
-    """Find a safe position to drop items in enemy territory"""
-    if not self.items:
-      return None
-
-    # Search in increasing radius from current position
-    for radius in range(1, 6):
+  def find_drop_spot_near(self, target_pos: Position, max_radius: int = 3) -> Optional[Position]:
+    """Find a valid spot to drop an item near a target position"""
+    # Search in increasing radius
+    for radius in range(max_radius + 1):
       for dx in range(-radius, radius + 1):
         for dy in range(-radius, radius + 1):
           new_pos = Position(
-            x=self.position.x + dx,
-            y=self.position.y + dy
+            x=target_pos.x + dx,
+            y=target_pos.y + dy
           )
 
-          # Check if position is valid and safe
+          # Check if position is valid
           if (0 <= new_pos.x < self.map.width and
                   0 <= new_pos.y < self.map.height and
                   self.map.tiles[new_pos.x][new_pos.y] != "WALL" and
-                  self.is_in_enemy_zone(new_pos) and
-                  self.is_safe_position(new_pos)):
+                  self.is_in_enemy_zone(new_pos)):
 
             # Check if position is empty
             if not any(item.position.x == new_pos.x and
@@ -107,6 +103,20 @@ class Carrier:
                        for item in self.all_items):
               return new_pos
     return None
+
+  def should_drop_radiant_for_blitzium(self, blitzium: Item) -> bool:
+    """Determine if we should drop our Radiant items to pick up Blitzium"""
+    if not any(item.type.startswith("radiant_") for item in self.items):
+      return False
+
+    # Calculate if we're close enough to the Blitzium to consider dropping Radiant
+    dist_to_blitzium = (abs(self.position.x - blitzium.position.x) +
+                        abs(self.position.y - blitzium.position.y))
+
+    # Only drop if we're relatively close and the position is relatively safe
+    return (dist_to_blitzium <= 3 and
+            self.is_safe_position(blitzium.position) and
+            len(self.items) + 1 > self.hasSpace)
 
   def get_action(self) -> Optional[Action]:
     """Determine the next action for the carrier"""
