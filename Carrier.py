@@ -184,7 +184,7 @@ class Carrier:
 
       # If carrying Radiant and no enemy Blitzium, try dropping it
       if not target_blitzium and carrying_radiant:
-        if self.is_in_enemy_zone(self.position):
+        if self.is_in_enemy_zone(self.position) and not any(item.position.x == self.position.x and item.position.y == self.position.y for item in self.all_items):
           return DropAction(characterId=self.car_id)
         else:
           # Find a position in enemy territory to drop
