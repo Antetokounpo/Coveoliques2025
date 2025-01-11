@@ -241,6 +241,17 @@ class Defender:
 
     return best_pos
 
+  def is_border_position(self, position: Position) -> bool:
+    """Check if a position is on our territory border"""
+    if not self.is_in_our_territory(position):
+      return False
+
+    return any(
+      not self.is_in_our_territory(Position(position.x + dx, position.y + dy))
+      for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]
+      if self.is_valid_position(position.x + dx, position.y + dy)
+    )
+
   def get_action(self) -> Optional[Action]:
     """Determine next action based on current situation"""
     # Update targeting
@@ -255,10 +266,24 @@ class Defender:
           return None  # Already adjacent for kill
         return self.get_next_move(enemy.position)
 
+      # If we're at a good border position, consider staying put
+      if self.is_border_position(self.position):
+        # Check if our current position is a good intercept point
+        dist_to_enemy = self.manhattan_distance(self.position, enemy.position)
+        best_intercept = self.find_nearest_border_position(enemy.position)
+
+        if best_intercept:
+          best_dist = self.manhattan_distance(best_intercept, enemy.position)
+          # If we're close enough to the optimal position, stay put
+          if dist_to_enemy <= best_dist + 1:
+            return None
+
       # Otherwise get to border for interception
       intercept_pos = self.find_nearest_border_position(enemy.position)
       if intercept_pos:
         return self.get_next_move(intercept_pos)
 
     # No target - patrol
+    if self.is_border_position(self.position):
+      return None  # Stay at border if already there
     return self.get_next_move(self.find_patrol_position())
