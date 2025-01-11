@@ -228,92 +228,94 @@ class Carrier:
 
     for dx in range(-3, 4):
       for dy in range(-3, 4):
-        pos = Position(
-          x=enemy_pos.x + dx,
-          y=enemy_pos.y + dy
-        )
+        new_x = enemy_pos.x + dx
+        new_y = enemy_pos.y + dy
 
-        if (0 <= pos.x < self.map.width and
-                0 <= pos.y < self.map.height and
-                self.map.tiles[pos.x][pos.y] != "WALL" and
-                self.is_in_enemy_zone(pos)):
+        # Skip if this is our current position
+        if new_x == self.position.x and new_y == self.position.y:
+          continue
 
-          # Calculate risk score based on enemy positions
+        if (0 <= new_x < self.map.width and
+                0 <= new_y < self.map.height and
+                self.map.tiles[new_x][new_y] != "WALL" and
+                self.is_in_enemy_zone(Position(x=new_x, y=new_y))):
+
+          pos = Position(x=new_x, y=new_y)
+
           risk_score = sum(1 for enemy in self.enemies
                            if enemy.alive and
-                           abs(enemy.position.x - pos.x) +
-                           abs(enemy.position.y - pos.y) <= 1)
+                           abs(enemy.position.x - new_x) +
+                           abs(enemy.position.y - new_y) <= 1)
 
-          # Calculate progress score based on distance to target
-          progress_score = -(abs(pos.x - enemy_pos.x) +
-                             abs(pos.y - enemy_pos.y))
+          progress_score = -(abs(new_x - enemy_pos.x) +
+                             abs(new_y - enemy_pos.y))
 
-          if risk_score == 0:  # Only consider safe positions
+          if risk_score == 0:
             possible_positions.append((pos, progress_score))
 
     if possible_positions:
-      # Return position with best progress score
       return max(possible_positions, key=lambda x: x[1])[0]
     return None
 
   def find_juke_path_home(self) -> Optional[Position]:
     """Find a safe path home while avoiding enemies"""
     safe_spots = []
+    current_x = self.position.x
+    current_y = self.position.y
 
-    # Find all possible positions in our territory
     for x in range(self.map.width):
       for y in range(self.map.height):
+        # Skip if this is our current position
+        if x == current_x and y == current_y:
+          continue
+
         if (self.team_zone[x][y] == self.team_id and
                 self.map.tiles[x][y] != "WALL"):
-          pos = Position(x=x, y=y)
 
-          # Calculate risk from enemies
           risk = sum(1 for enemy in self.enemies
                      if enemy.alive and
                      abs(enemy.position.x - x) +
                      abs(enemy.position.y - y) <= 2)
 
-          # Calculate progress towards home
-          progress = -(abs(x - self.position.x) +
-                       abs(y - self.position.y))
+          progress = -(abs(x - current_x) + abs(y - current_y))
 
-          if risk == 0:  # Only consider safe positions
-            safe_spots.append((pos, progress))
+          if risk == 0:
+            safe_spots.append((Position(x=x, y=y), progress))
 
     if safe_spots:
-      # Return position with best progress score
       return max(safe_spots, key=lambda x: x[1])[0]
     return None
 
   def find_juke_path_to_target(self, target_pos: Position) -> Optional[Position]:
     """Find a safe path to target while avoiding enemies"""
     possible_moves = []
+    current_x = self.position.x
+    current_y = self.position.y
 
     for dx in range(-2, 3):
       for dy in range(-2, 3):
-        pos = Position(
-          x=self.position.x + dx,
-          y=self.position.y + dy
-        )
+        new_x = current_x + dx
+        new_y = current_y + dy
 
-        if (0 <= pos.x < self.map.width and
-                0 <= pos.y < self.map.height and
-                self.map.tiles[pos.x][pos.y] != "WALL"):
+        # Skip if this is our current position
+        if new_x == current_x and new_y == current_y:
+          continue
 
-          # Calculate risk from enemies
+        if (0 <= new_x < self.map.width and
+                0 <= new_y < self.map.height and
+                self.map.tiles[new_x][new_y] != "WALL"):
+
           risk = sum(1 for enemy in self.enemies
                      if enemy.alive and
-                     abs(enemy.position.x - pos.x) +
-                     abs(enemy.position.y - pos.y) <= 1)
+                     abs(enemy.position.x - new_x) +
+                     abs(enemy.position.y - new_y) <= 1)
 
-          # Calculate progress towards target
-          progress = -(abs(pos.x - target_pos.x) +
-                       abs(pos.y - target_pos.y))
+          progress = -(abs(new_x - target_pos.x) +
+                       abs(new_y - target_pos.y))
 
-          if risk == 0:  # Only consider safe positions
-            possible_moves.append((pos, progress))
+          if risk == 0:
+            possible_moves.append((Position(x=new_x, y=new_y), progress))
 
     if possible_moves:
-      # Return position with best progress score
       return max(possible_moves, key=lambda x: x[1])[0]
     return None
