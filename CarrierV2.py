@@ -147,23 +147,27 @@ class Carrier:
     if not valid_items:
       return None
 
-    def get_item_score(item):
-        # Find which enemies can actually reach the item
-        reachable_enemy_dist = float('inf')
-        for enemy in self.enemies:
-            if not enemy.alive:
-                continue
-                
-            # Check if enemy can actually reach the item
-            if self.find_path(enemy.position, item.position):
-                dist = abs(enemy.position.x - item.position.x) + abs(enemy.position.y - item.position.y)
-                reachable_enemy_dist = min(reachable_enemy_dist, dist)
-        
-        # If no enemies can reach it, treat as maximum safe distance
-        reachable_enemy_dist = 20 if reachable_enemy_dist == float('inf') else reachable_enemy_dist
-        return item.value + reachable_enemy_dist
+    #def get_item_score(item):
+    #    # Find which enemies can actually reach the item
+    #    reachable_enemy_dist = float('inf')
+    #    for enemy in self.enemies:
+    #        if not enemy.alive:
+    #            continue
+    #            
+    #        # Check if enemy can actually reach the item
+    #        if self.find_path(enemy.position, item.position):
+    #            dist = abs(enemy.position.x - item.position.x) + abs(enemy.position.y - item.position.y)
+    #            reachable_enemy_dist = min(reachable_enemy_dist, dist)
+    #    
+    #    # If no enemies can reach it, treat as maximum safe distance
+    #    reachable_enemy_dist = 20 if reachable_enemy_dist == float('inf') else reachable_enemy_dist
+    #    return item.value + reachable_enemy_dist
 
-    return max(valid_items, key=get_item_score)
+    #return max(valid_items, key=get_item_score)
+    return max(valid_items,
+               key=lambda item: (item.value,
+                                 -abs(item.position.x - self.position.x) -
+                                 abs(item.position.y - self.position.y)))
 
   def find_safe_drop_spot_in_enemy_zone(self) -> Optional[Position]:
     """Find a safe and reachable spot in enemy territory to drop items"""
@@ -225,7 +229,7 @@ class Carrier:
     if not self.alive:
       return None
 
-    astar.add_enemies_to_map(self.bool_map, self.enemies) # add enemies to astar finding
+    #astar.add_enemies_to_map(self.bool_map, self.enemies) # add enemies to astar finding
 
     # If carrying Blitzium, try to bring it home safely
     if any(item.type.startswith("blitzium_") for item in self.items):
@@ -234,18 +238,19 @@ class Carrier:
       else:
         # Find safe path home
         safe_home_positions = [
-          Position(x=x, y=y)
+          (Position(x=x, y=y), astar.A_star_voiture(self.bool_map, self.position, Position(x=x, y=y)))
           for x in range(self.map.width)
           for y in range(self.map.height)
           if self.is_in_team_zone(Position(x=x, y=y)) and
              self.is_valid_position(Position(x=x, y=y)) and
-             not any(item.position.x == x and item.position.y == y for item in self.all_items) and
-             self.find_path(self.position, Position(x=x, y=y))
+             not any(item.position.x == x and item.position.y == y for item in self.all_items)# and
+             #self.find_path(self.position, Position(x=x, y=y))
         ]
         if safe_home_positions:
           closest_pos = min(safe_home_positions,
-                            key=lambda pos: abs(pos.x - self.position.x) + abs(pos.y - self.position.y))
-          return MoveToAction(characterId=self.car_id, position=closest_pos)
+                            key=lambda pos: 99999 if pos[1] is None else len(pos[1]))
+          next_pos = closest_pos[1][1]
+          return MoveToAction(characterId=self.car_id, position=Position(x=next_pos[0], y=next_pos[1]))
 
     # Look for accessible Blitzium
     for check_zones in [(True, False), (False, True)]:  # First enemy, then neutral

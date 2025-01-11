@@ -88,13 +88,16 @@ class HalfHalf:
     def get_next_move(self, game_message: TeamGameState):
         if not self.inited:
             self.bool_map = astar.convert_to_bool_map(game_message)
-            self.inited = False
+            self.inited = True
 
         actions = []
 
+        current_bool_map = self.bool_map.copy()
+        astar.add_enemies_to_map(current_bool_map, game_message.otherCharacters) # inplace
+
         for i, character in enumerate(game_message.yourCharacters):
             GameRole = Defender if i % 2 == 1 else Carrier
-            player = GameRole(character, game_message, self.bool_map)
+            player = GameRole(character, game_message, current_bool_map)
             next_action = player.get_action()
             if next_action is not None:
                 actions.append(next_action)
