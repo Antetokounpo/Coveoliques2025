@@ -32,11 +32,11 @@ class Carrier:
 
   def is_in_team_zone(self, position: Position) -> bool:
     """Check if a position is in our team's zone"""
-    return self.team_zone[position.y][position.x] == self.team_id
+    return self.team_zone[position.x][position.y] == self.team_id
 
   def is_in_enemy_zone(self, position: Position) -> bool:
     """Check if a position is in enemy zone"""
-    zone = self.team_zone[position.y][position.x]
+    zone = self.team_zone[position.x][position.y]
     return zone != "" and zone != self.team_id
 
   def is_safe_position(self, position: Position) -> bool:
@@ -97,7 +97,7 @@ class Carrier:
           # Check if position is valid and safe
           if (0 <= new_pos.x < self.map.width and
                   0 <= new_pos.y < self.map.height and
-                  self.map.tiles[new_pos.y][new_pos.x] != "WALL" and
+                  self.map.tiles[new_pos.x][new_pos.y] != "WALL" and
                   self.is_in_enemy_zone(new_pos) and
                   self.is_safe_position(new_pos)):
 
@@ -124,12 +124,12 @@ class Carrier:
           best_position = None
           best_score = float('-inf')
 
-          for y in range(self.map.height):
-            for x in range(self.map.width):
+          for x in range(self.map.width):
+            for y in range(self.map.height):
               pos = Position(x=x, y=y)
-              if (self.team_zone[y][x] != self.team_id and
-                      self.team_zone[y][x] != "" and
-                      self.map.tiles[y][x] != "WALL"):
+              if (self.team_zone[x][y] != self.team_id and
+                      self.team_zone[x][y] != "" and
+                      self.map.tiles[x][y] != "WALL"):
 
                 # Calculate position score based on multiple factors
                 dist = abs(x - self.position.x) + abs(y - self.position.y)
@@ -168,9 +168,9 @@ class Carrier:
           return DropAction(characterId=self.car_id)
         else:
           # Find closest position in our zone
-          for y in range(self.map.height):
-            for x in range(self.map.width):
-              if self.team_zone[y][x] == self.team_id:
+          for x in range(self.map.width):
+            for y in range(self.map.height):
+              if self.team_zone[x][y] == self.team_id:
                 return MoveToAction(
                   characterId=self.car_id,
                   position=Position(x=x, y=y)
