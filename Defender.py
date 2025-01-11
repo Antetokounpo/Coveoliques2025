@@ -28,6 +28,7 @@ class Defender:
     self.tick = game_state.currentTickNumber
     self.enemies = game_state.otherCharacters
     self.allies = game_state.yourCharacters
+    self.all_items = game_state.items
 
     # Reset targets at start of new tick
     if any(ally.id == self.allies[0].id for ally in self.allies):
