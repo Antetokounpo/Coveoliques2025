@@ -1,15 +1,17 @@
 from game_message import Character, Position, Item, TeamGameState, GameMap, MoveLeftAction, MoveRightAction, MoveUpAction, MoveDownAction, MoveToAction, GrabAction, DropAction, Action
 from typing import List, Optional, Tuple, Set
 from collections import deque
+import astar
 
 class Carrier:
-  def __init__(self, car: Character, game_state: TeamGameState):
+  def __init__(self, car: Character, game_state: TeamGameState, bool_map):
     self.car_id = car.id
     self.position = car.position
     self.alive = car.alive
     self.items = car.carriedItems
     self.hasSpace = car.numberOfCarriedItems < game_state.constants.maxNumberOfItemsCarriedPerCharacter
     self.value = sum(item.value for item in car.carriedItems)
+    self.bool_map = bool_map
 
     # Store important game state information
     self.team_id = game_state.currentTeamId

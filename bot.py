@@ -3,6 +3,7 @@ from game_message import *
 from collections import deque
 from Defender import Defender
 from CarrierV2 import Carrier
+import astar
 
 class MyBot:
     def __init__(self):
@@ -81,14 +82,19 @@ class DefenderBot:
 
 class HalfHalf:
     def __init__(self):
-        pass
+        self.inited = False
+        self.bool_map = None
 
     def get_next_move(self, game_message: TeamGameState):
+        if not self.inited:
+            self.bool_map = astar.convert_to_bool_map(game_message)
+            self.inited = True
+
         actions = []
 
         for i, character in enumerate(game_message.yourCharacters):
             GameRole = Defender if i % 2 == 1 else Carrier
-            player = GameRole(character, game_message)
+            player = GameRole(character, game_message, self.bool_map)
             next_action = player.get_action()
             if next_action is not None:
                 actions.append(next_action)

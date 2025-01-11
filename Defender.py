@@ -13,13 +13,14 @@ class Defender:
   # Class variable to track targets across all defender instances
   _targets: Dict[str, Target] = {}
 
-  def __init__(self, car: Character, game_state: TeamGameState):
+  def __init__(self, car: Character, game_state: TeamGameState, bool_map):
     self.car_id = car.id
     self.position = car.position
     self.alive = car.alive
     self.items = car.carriedItems
     self.hasSpace = car.numberOfCarriedItems < game_state.constants.maxNumberOfItemsCarriedPerCharacter
     self.value = sum(item.value for item in car.carriedItems)
+    self.bool_map = bool_map
 
     # Store important game state information
     self.team_id = game_state.currentTeamId
