@@ -1,5 +1,4 @@
-from game_message import Character, Position, Item, TeamGameState, GameMap, MoveDownAction, MoveUpAction, \
-  MoveRightAction, MoveLeftAction, Action, DropAction
+from game_message import Character, Position, Item, TeamGameState, GameMap, MoveLeftAction, MoveRightAction, MoveUpAction, MoveDownAction, DropAction, Action
 from typing import List, Optional, Tuple
 
 class Defender:
@@ -22,19 +21,18 @@ class Defender:
 
   def is_valid_position(self, x: int, y: int) -> bool:
     """Check if a position is valid (in bounds and not a wall)"""
-    if not (0 <= y < self.map.height and 0 <= x < self.map.width):
+    if not (0 <= x < self.map.width and 0 <= y < self.map.height):
       return False
-    return self.map.tiles[y][x] != "WALL"
+    return self.map.tiles[x][y] != "WALL"
 
   def is_in_our_territory(self, position: Position) -> bool:
     """Check if a position is in our territory"""
-    return self.team_zone[position.y][position.x] == self.team_id
+    return self.team_zone[position.x][position.y] == self.team_id
 
   def should_intercept(self, enemy: Character) -> bool:
     """Determine if we should intercept this enemy"""
     if not self.alive or not enemy.alive:
       return False
-
 
     # Must be in our territory
     if not self.is_in_our_territory(self.position):
@@ -63,8 +61,8 @@ class Defender:
       if item.value > 0 and self.is_in_our_territory(item.position)
     ]
 
-    for y in range(self.map.height):
-      for x in range(self.map.width):
+    for x in range(self.map.width):
+      for y in range(self.map.height):
         if not self.is_valid_position(x, y):
           continue
 
@@ -88,10 +86,10 @@ class Defender:
 
         # Bonus for central positions in our territory
         territory_bonus = sum(
-          1 for dy in range(-2, 3)
-          for dx in range(-2, 3)
-          if (0 <= y + dy < self.map.height and
-              0 <= x + dx < self.map.width and
+          1 for dx in range(-2, 3)
+          for dy in range(-2, 3)
+          if (0 <= x + dx < self.map.width and
+              0 <= y + dy < self.map.height and
               self.is_in_our_territory(Position(x + dx, y + dy)))
         )
         score += territory_bonus * 0.5
@@ -102,7 +100,7 @@ class Defender:
 
     return best_position
 
-  def get_next_move(self, target_pos: Position)-> Optional[Action]:
+  def get_next_move(self, target_pos: Position) -> Optional[Action]:
     """
     Get the next move towards a target position while staying in our territory.
     Returns appropriate MoveAction (Left/Right/Up/Down) based on best direction.
