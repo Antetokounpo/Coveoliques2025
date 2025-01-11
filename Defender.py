@@ -1,5 +1,5 @@
 from game_message import Character, Position, Item, TeamGameState, GameMap, MoveDownAction, MoveUpAction, \
-  MoveRightAction, MoveLeftAction
+  MoveRightAction, MoveLeftAction, Action
 from typing import List, Optional, Tuple
 
 class Defender:
@@ -101,7 +101,7 @@ class Defender:
 
     return best_position
 
-  def get_next_move(self, target_pos: Position):
+  def get_next_move(self, target_pos: Position)-> Optional[Action]:
     """
     Get the next move towards a target position while staying in our territory.
     Returns appropriate MoveAction (Left/Right/Up/Down) based on best direction.
