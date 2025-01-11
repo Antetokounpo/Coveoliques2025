@@ -1,4 +1,5 @@
-from game_message import Character, Position, Item, TeamGameState, GameMap, MoveLeftAction, MoveRightAction, MoveUpAction, MoveDownAction, Action
+from game_message import Character, Position, Item, TeamGameState, GameMap, MoveLeftAction, MoveRightAction, \
+  MoveUpAction, MoveDownAction, Action, DropAction
 from typing import List, Optional, Tuple, Dict
 
 class Target:
@@ -252,6 +253,87 @@ class Defender:
       if self.is_valid_position(position.x + dx, position.y + dy)
     )
 
+  def is_position_empty(self, position: Position) -> bool:
+    """Check if a position has no items on it"""
+    return not any(item.position.x == position.x and item.position.y == position.y
+                   for item in self.all_items)
+
+  def find_nearest_drop_position(self) -> Optional[Position]:
+    """Find nearest empty enemy territory position to drop items"""
+    best_pos = None
+    min_dist = float('inf')
+
+    # Check border of our territory for drop points
+    for x in range(self.map.width):
+      for y in range(self.map.height):
+        pos = Position(x, y)
+        if self.is_in_our_territory(pos):
+          continue
+
+        # Must be an empty, valid position
+        if not self.is_valid_position(x, y) or not self.is_position_empty(pos):
+          continue
+
+        # Must be adjacent to our territory
+        if not any(
+                self.is_in_our_territory(Position(x + dx, y + dy))
+                for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]
+                if self.is_valid_position(x + dx, y + dy)
+        ):
+          continue
+
+        dist = self.manhattan_distance(self.position, pos)
+        if dist < min_dist:
+          min_dist = dist
+          best_pos = pos
+
+    return best_pos
+
+  def is_safe_to_clean_radiant(self) -> bool:
+    """Check if it's safe to pick up radiant items"""
+    # Don't clean if we're carrying anything
+    if len(self.items) > 0:
+      return False
+
+    # Check if any enemies are too close
+    for enemy in self.enemies:
+      if not enemy.alive:
+        continue
+      if self.manhattan_distance(self.position, enemy.position) <= 3:
+        return False
+    return True
+
+  def find_nearby_radiant(self) -> Optional[Tuple[Position, Position]]:
+    """Find nearby radiant item and position to drop it in enemy territory"""
+    if not self.is_safe_to_clean_radiant():
+      return None
+
+    # Find nearest radiant item in our territory
+    best_item_pos = None
+    min_item_dist = float('inf')
+
+    for item in self.all_items:
+      if item.value < 0 and self.is_in_our_territory(item.position):
+        dist = self.manhattan_distance(self.position, item.position)
+        if dist < min_item_dist and dist <= 3:  # Only consider nearby items
+          min_item_dist = dist
+          best_item_pos = item.position
+
+    if not best_item_pos:
+      return None
+
+    # Find nearest drop position
+    drop_pos = self.find_nearest_drop_position()
+    if not drop_pos:
+      return None
+
+    # Only clean if total distance is reasonable
+    total_dist = min_item_dist + self.manhattan_distance(best_item_pos, drop_pos)
+    if total_dist > 6:  # Don't go too far from patrol
+      return None
+
+    return (best_item_pos, drop_pos)
+
   def get_action(self) -> Optional[Action]:
     """Determine next action based on current situation"""
     # Update targeting
@@ -266,7 +348,7 @@ class Defender:
           return None  # Already adjacent for kill
         return self.get_next_move(enemy.position)
 
-      # If we're at a good border position, consider staying put
+      # If we're at a good border position, consider staying put or cleaning radiant
       if self.is_border_position(self.position):
         # Check if our current position is a good intercept point
         dist_to_enemy = self.manhattan_distance(self.position, enemy.position)
@@ -274,8 +356,18 @@ class Defender:
 
         if best_intercept:
           best_dist = self.manhattan_distance(best_intercept, enemy.position)
-          # If we're close enough to the optimal position, stay put
-          if dist_to_enemy <= best_dist + 1:
+          is_good_position = dist_to_enemy <= best_dist + 1
+
+          if is_good_position:
+            # Consider cleaning radiant if we're in a good spot
+            cleanup_info = self.find_nearby_radiant()
+            if cleanup_info:
+              item_pos, drop_pos = cleanup_info
+              if len(self.items) > 0:  # If carrying item
+                if self.manhattan_distance(self.position, drop_pos) <= 1:
+                  return DropAction(characterId=self.car_id)
+                return self.get_next_move(drop_pos)
+              return self.get_next_move(item_pos)
             return None
 
       # Otherwise get to border for interception
@@ -283,7 +375,17 @@ class Defender:
       if intercept_pos:
         return self.get_next_move(intercept_pos)
 
-    # No target - patrol
+    # No target - consider cleaning radiant
+    cleanup_info = self.find_nearby_radiant()
+    if cleanup_info:
+      item_pos, drop_pos = cleanup_info
+      if len(self.items) > 0:  # If carrying item
+        if self.manhattan_distance(self.position, drop_pos) <= 1:
+          return DropAction(characterId=self.car_id)
+        return self.get_next_move(drop_pos)
+      return self.get_next_move(item_pos)
+
+    # Just patrol
     if self.is_border_position(self.position):
       return None  # Stay at border if already there
     return self.get_next_move(self.find_patrol_position())
