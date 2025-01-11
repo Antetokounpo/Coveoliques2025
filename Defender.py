@@ -17,6 +17,9 @@ class Defender:
     self.car_id = car.id
     self.position = car.position
     self.alive = car.alive
+    self.items = car.carriedItems
+    self.hasSpace = car.numberOfCarriedItems < game_state.constants.maxNumberOfItemsCarriedPerCharacter
+    self.value = sum(item.value for item in car.carriedItems)
 
     # Store important game state information
     self.team_id = game_state.currentTeamId
