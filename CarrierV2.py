@@ -253,7 +253,6 @@ class Carrier:
         check_enemy=check_zones[0],
         check_neutral=check_zones[1]
       )
-      print(blitzium)
       if blitzium and self.is_safe_position(blitzium.position):
         if (self.position.x == blitzium.position.x and
                 self.position.y == blitzium.position.y):
