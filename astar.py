@@ -71,7 +71,7 @@ def convert_to_bool_map(game_message: TeamGameState):
 def add_enemies_to_map(bool_map, game_message: TeamGameState):
     for e in game_message.otherCharacters:
         bool_map[e.position.x, e.position.y] = False
-
+# ditto ici
 def add_items_to_map(bool_map, game_message: TeamGameState):
     for item in game_message.items:
         bool_map[item.position.x, item.position.y] = False
