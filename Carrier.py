@@ -120,35 +120,39 @@ class Carrier:
     return None
 
   def find_safest_team_position(self) -> Optional[Position]:
-    """Find the safest position in our territory"""
-    min_risk_pos = None
-    min_risk = float('inf')
-    max_depth = -1
+    """Find the safest valid position in our territory"""
+    best_pos = None
+    best_score = float('-inf')
 
     for x in range(self.map.width):
       for y in range(self.map.height):
+        # Check if position is valid and in our zone
         pos = Position(x=x, y=y)
-        if self.team_zone[x][y] == self.team_id:
-          # Calculate risk based on enemy proximity
+        if (self.team_zone[x][y] == self.team_id and
+                self.map.tiles[x][y] != "WALL" and
+                not any(item.position.x == x and item.position.y == y
+                        for item in self.all_items)):
+
+          # Calculate risk from enemies
           risk = sum(1 for enemy in self.enemies
                      if enemy.alive and
                      abs(enemy.position.x - x) + abs(enemy.position.y - y) <= 3)
 
-          # Calculate depth into our territory
-          depth = min(
-            abs(x2 - x) + abs(y2 - y)
-            for x2 in range(self.map.width)
-            for y2 in range(self.map.height)
-            if self.team_zone[x2][y2] != self.team_id
-          )
+          # Count non-team adjacent tiles to measure depth
+          border_count = sum(1
+                             for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]
+                             if 0 <= x+dx < self.map.width and
+                             0 <= y+dy < self.map.height and
+                             self.team_zone[x+dx][y+dy] != self.team_id)
 
-          # Prefer deeper positions with less risk
-          if depth > max_depth or (depth == max_depth and risk < min_risk):
-            max_depth = depth
-            min_risk = risk
-            min_risk_pos = pos
+          # Scoring: prefer low risk and low border count (deeper position)
+          score = -risk - border_count
 
-    return min_risk_pos
+          if score > best_score:
+            best_score = score
+            best_pos = pos
+
+    return best_pos
 
   def get_action(self) -> Optional[Action]:
     """Determine the next action for the carrier"""
