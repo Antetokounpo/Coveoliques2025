@@ -147,11 +147,23 @@ class Carrier:
     if not valid_items:
       return None
 
-    # Sort by value first, then by distance if values are equal
-    return max(valid_items,
-               key=lambda item: (item.value,
-                                 -abs(item.position.x - self.position.x) -
-                                 abs(item.position.y - self.position.y)))
+    def get_item_score(item):
+        # Find which enemies can actually reach the item
+        reachable_enemy_dist = float('inf')
+        for enemy in self.enemies:
+            if not enemy.alive:
+                continue
+                
+            # Check if enemy can actually reach the item
+            if self.find_path(enemy.position, item.position):
+                dist = abs(enemy.position.x - item.position.x) + abs(enemy.position.y - item.position.y)
+                reachable_enemy_dist = min(reachable_enemy_dist, dist)
+        
+        # If no enemies can reach it, treat as maximum safe distance
+        reachable_enemy_dist = 20 if reachable_enemy_dist == float('inf') else reachable_enemy_dist
+        return item.value + reachable_enemy_dist
+
+    return max(valid_items, key=get_item_score)
 
   def find_safe_drop_spot_in_enemy_zone(self) -> Optional[Position]:
     """Find a safe and reachable spot in enemy territory to drop items"""
@@ -241,6 +253,7 @@ class Carrier:
         check_enemy=check_zones[0],
         check_neutral=check_zones[1]
       )
+      print(blitzium)
       if blitzium and self.is_safe_position(blitzium.position):
         if (self.position.x == blitzium.position.x and
                 self.position.y == blitzium.position.y):

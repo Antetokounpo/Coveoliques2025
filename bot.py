@@ -88,7 +88,7 @@ class HalfHalf:
     def get_next_move(self, game_message: TeamGameState):
         if not self.inited:
             self.bool_map = astar.convert_to_bool_map(game_message)
-            self.inited = True
+            self.inited = False
 
         actions = []
 
